@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.so
+
+# Virtual environments
+venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+Dataset/download.sh
+test/
+/dataset
+/datasetMO
+# Logs and temp files
+*.log
+*.tmp
+utils/others
+Dataset/shapenetcore
+Dataset/3Dmatch
+ModelNet10/
+trials/
