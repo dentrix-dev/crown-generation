@@ -13,7 +13,7 @@ def generate(vertices_np, model_name="poinTr", pretrained="/path/to/checkpoint.p
     Args:
         vertices_np (np.ndarray): Input vertices of shape (num_points, 3).
         model_name (str): The architecture of the segmentation model. 
-                          Options: "DynamicGraphCNN", "PCT", "PointNet", "Folding".
+                          Options: "PoinTr", "Folding".
         pretrained (str): Path to the pre-trained model checkpoint.
         sample (bool): Whether to downsample the vertices using a sampling technique.
         clean (bool): Whether to clean the vertices by removing outliers.

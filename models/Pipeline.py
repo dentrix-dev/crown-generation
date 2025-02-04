@@ -1,56 +1,37 @@
 import torch
 import torch.nn as nn
-from models.GraphCNN.DGCNN import EdgeConv
-from factories.sampling_factory import get_sampling_technique
-from sampling.PointsCloud.knn import kdneighGPU
-
-sampling = get_sampling_technique('fps')
-
-
-class DGCNN(nn.Module):
-    def __init__(self):
-        super(DGCNN, self).__init__()
-
-        self.embedding = nn.Embedding(2, 64)
-        self.conv_emb = nn.Conv1d(64, 64, 1)
-
-        self.edgeconv1 = EdgeConv(3, [64, 64])
-        self.edgeconv2 = EdgeConv(64, [64, 64])
-        self.edgeconv3 = EdgeConv(64, [64])
-
-        self.conv1 = nn.Conv1d(195, 1024, 1)
-
-        self.conv2 = nn.Conv1d(1283, 1024, 1)
-        self.conv3 = nn.Conv1d(1024, 128, 1)
-
-        self.relu = nn.LeakyReLU()
-
-    def forward(self, x, jaw=0):
-
-        emb = self.embedding(jaw).unsqueeze(2)
-        emb = self.conv_emb(emb).permute(0, 2, 1)
-
-        x1 = self.edgeconv1(x)
-        x2 = self.edgeconv2(x1)
-        x3 = self.edgeconv3(x2)
-
-        xn = torch.cat([x, x1, x2, x3], dim=2).permute(0, 2, 1)
-        xn = torch.max(xn, dim = 2, keepdim=True)[0]
-        xn = self.relu(self.conv1(xn)).permute(0, 2, 1)
-        xn = torch.cat([xn, emb], dim=2)
-
-        x = torch.cat([xn.expand(x1.size(0), x1.size(1), -1), x1, x2, x3, x], dim=2).permute(0, 2, 1)
-
-        x = self.relu(self.conv2(x))
-        x = self.relu(self.conv3(x)).transpose(1, 2)
-
-        return x
-
+from .Transformers.DGCNN import DGCNN
+from .Transformers.attentionMechanizm import PositionEmbedding, Encoder, Decoder, QueryGenerator
 
 class FeatureExtractor(nn.Module):
-    def __init__(self, *args, **kwargs):
-        super(FeatureExtractor, self).__init__(*args, **kwargs)
+    def __init__(self):
+        super(FeatureExtractor, self).__init__()
+        self.posembedding = PositionEmbedding(3, 128)
         self.dgcnn = DGCNN()
 
-    def forward(self, x): # input B, N, Cin -> B, N, Cout
-        return x
+    def forward(self, x, teeth):
+        le = self.dgcnn(x, teeth)
+        pe = self.posembedding(x)
+        return torch.cat([pe, le], dim = 2)
+
+class Model(nn.Module):
+    def __init__(self, inchannels=256, dk=256, dv=256, factor=4, num_heads=4, num_layers=2, offset=False):
+        super(Model, self).__init__()
+        self.features = FeatureExtractor()
+        self.encoder = Encoder(inchannels=inchannels, dk=dk, dv=dv, factor=factor, num_heads=num_heads, num_layers=num_layers, offset=offset)
+
+    def forward(self, x, teeth):
+        x = self.features(x, teeth)
+        return self.encoder(x)
+
+class TransformerArchitecture(nn.Module):
+    def __init__(self):
+        super(TransformerArchitecture, self).__init__()
+        self.encoder = Encoder(inchannels=256, dk=512, dv=512, factor=4, num_heads=4, num_layers=2)
+        self.decoder = Decoder(inchannels=256, encoder_in=256, dk=512, dv=512, factor=4, num_heads=4, num_layers=2)
+        self.QG = QueryGenerator(in_channels=256, num_points=1024, out_channels=256)
+
+    def forward(self, x):
+        encoder_in = self.encoder(x)
+        query = self.QG(x)
+        return self.decoder(query, encoder_in)
