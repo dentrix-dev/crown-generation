@@ -97,26 +97,30 @@ class MultiHeadAttention(nn.Module):
     def forward(self, x):
         return self.projection(torch.cat([head(x) for head in self.heads], dim=2))
 
-class EncoderBlock(nn.Module):
+class GeometryAwareEncoderBlock(nn.Module):
     def __init__(self, inchannels, dk, dv, factor, num_heads, offset):
-        super(EncoderBlock, self).__init__()
+        super(GeometryAwareEncoderBlock, self).__init__()
         self.attention = MultiHeadAttention(inchannels, dk, dv, num_heads, offset)
+        self.edgeconv = EdgeConv(inchannels, [inchannels])
+
         self.ffn = nn.Sequential(
-            LRD(inchannels, inchannels*factor),
+            LRD(inchannels*2, inchannels*factor),
             LD(factor*inchannels, inchannels)
         )
         self.bn1 = nn.BatchNorm1d(inchannels)
         self.bn2 = nn.BatchNorm1d(inchannels)
 
     def forward(self, x):
-        x = self.bn1((x + self.attention(x)).permute(0, 2, 1)).permute(0, 2, 1)
-        return self.bn2((x + self.ffn(x)).permute(0, 2, 1)).permute(0, 2, 1)
+        x1 = self.bn1((x + self.attention(x)).permute(0, 2, 1)).permute(0, 2, 1)
+        x2 = self.edgeconv(x)
+        x3 = torch.cat([x1, x2], dim=2)
+        return self.bn2((x + self.ffn(x3)).permute(0, 2, 1)).permute(0, 2, 1)
 
 class Encoder(nn.Module):
     def __init__(self, inchannels, dk, dv, factor, num_heads, num_layers, offset=False):
         super(Encoder, self).__init__()
         self.encoder_layers = nn.ModuleList([
-            EncoderBlock(inchannels, dk, dv, factor, num_heads, offset) for _ in range(num_layers)
+            GeometryAwareEncoderBlock(inchannels, dk, dv, factor, num_heads, offset) for _ in range(num_layers)
         ])
 
     def forward(self, x):
@@ -134,7 +138,7 @@ class QueryGenerator(nn.Module):
         F = torch.max(F, dim=1, keepdim=True)[0]
         points = self.conv1(F).reshape(F.shape[0], -1, 3)
         Q = torch.cat([points, F.expand(points.size(0), points.size(1), -1)], dim = 2)
-        return self.conv2(Q)
+        return self.conv2(Q), points
 
 class CA(nn.Module):
     def __init__(self, inchannels, encoder_in, dk, dv):
@@ -172,9 +176,10 @@ class DecoderBlock(nn.Module):
         super(DecoderBlock, self).__init__()
         self.attention = MultiHeadAttention(inchannels, dk, dv, num_heads)
         self.crossattention = MultiHeadCrossAttention(inchannels, encoder_in, dk, dv, num_heads)
+        self.edgeconv = EdgeConv(inchannels, [inchannels])
 
         self.ffn = nn.Sequential(
-            LRD(inchannels, inchannels*factor),
+            LRD(inchannels*2, inchannels*factor),
             LD(factor*inchannels, inchannels)
         )
 
@@ -184,9 +189,10 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x, encoder_input):
         x = self.bn1((x + self.attention(x)).permute(0, 2, 1)).permute(0, 2, 1)
-        x = self.bn2((x + self.crossattention(encoder_input, x)).permute(0, 2, 1)).permute(0, 2, 1)
-
-        return self.bn3((x + self.ffn(x)).permute(0, 2, 1)).permute(0, 2, 1)
+        x1 = self.bn2((x + self.crossattention(encoder_input, x)).permute(0, 2, 1)).permute(0, 2, 1)
+        x2 = self.edgeconv(x)
+        x3 = torch.cat([x1, x2], dim=2)
+        return self.bn3((x + self.ffn(x3)).permute(0, 2, 1)).permute(0, 2, 1)
 
 
 class Decoder(nn.Module):
@@ -199,5 +205,4 @@ class Decoder(nn.Module):
     def forward(self, x, encoder_input):
         for layer in self.layers:
             x = layer(x, encoder_input)
-
         return x

@@ -72,10 +72,10 @@ class Folding(nn.Module):
 
 
 class FBDecoder(nn.Module):
-    def __init__(self):
+    def __init__(self, num_points=32):
         super(FBDecoder, self).__init__() 
         # Sample the grids in 2D space
-        self.grid = torch.tensor(np.array(np.meshgrid(np.linspace(-0.5, 0.5, 100, dtype=np.float32), np.linspace(-0.5, 0.5, 100, dtype=np.float32))), dtype=torch.float32).reshape(-1, 2)
+        self.grid = torch.tensor(np.array(np.meshgrid(np.linspace(-0.5, 0.5, num_points, dtype=np.float32), np.linspace(-0.5, 0.5, num_points, dtype=np.float32))), dtype=torch.float32).reshape(-1, 2)
         self.fold1 = Folding(514, (512, 512, 3))
         self.fold2 = Folding(515, (512, 512, 3))
 
@@ -90,10 +90,10 @@ class FBDecoder(nn.Module):
 
 
 class FoldingNet(nn.Module):
-    def __init__(self, encoder_in=12, encoder_out=64):
+    def __init__(self, encoder_in=12, encoder_out=64, num_points=32):
         super(FoldingNet, self).__init__()
         self.gbencoder = GBEncoder(encoder_in, encoder_out)
-        self.fbdecoder = FBDecoder()
+        self.fbdecoder = FBDecoder(num_points)
 
     def forward(self, x):
         codeword = self.gbencoder(x)
