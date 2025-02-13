@@ -5,38 +5,33 @@ AI Pipeline for Crown Generation Module
 ![OurArchitecture](/images/Pipeline.png)
 
 ## **📌 Abstract Representation of our Architecture**
-Our Architecture is a **transformer-based** encoder-decoder model for **point cloud completion**.  
+Our Architecture is a **transformer-based** encoder-decoder model for **point cloud construction**.
 
 1. **Input:**  
-   - **Incomplete point cloud** → \( X \in \mathbb{R}^{B \times N \times 3} \)  
-   - Where \( B \) = batch size, \( N \) = number of points, and **each point has 3D coordinates (x, y, z)**.  
+   - **point cloud** → `X ∈ R^(B × N × 3)`  
+   - Where `B` = batch size, `N` = number of points, and **each point has 3D coordinates (x, y, z)**.  
 
 ### **1️⃣ Feature Extraction (DGCNN)**
 - **Extracts local features using a Dynamic Graph CNN (DGCNN).**
 - Converts each point into a feature vector.
 
 📌 **Mathematical Operation:**  
-\[
-F = \text{DGCNN}(X)
-\]
-📌 **Shape Transformation:**  
-\[
-X \in \mathbb{R}^{B \times N \times 3} \quad \Rightarrow \quad F \in \mathbb{R}^{B \times N \times d}
-\]
-where \( d \) is the feature dimension.
+`F = DGCNN(X)`
 
+📌 **Shape Transformation:**  
+`X ∈ R^(B × N × 3) → F ∈ R^(B × N × d)`
+
+where `d` is the feature dimension.
 
 ### **2️⃣ Positional Embedding**
 - **Encodes spatial information into the feature space.**
 
 📌 **Mathematical Operation:**  
-\[
-F' = F + \text{PositionalEmbedding}(X)
-\]
+`F' = F + PositionalEmbedding(X)`
+
 📌 **Shape:**  
-\[
-F \in \mathbb{R}^{B \times N \times d} \quad \Rightarrow \quad F' \in \mathbb{R}^{B \times N \times d}
-\]
+`F ∈ R^(B × N × d) → F' ∈ R^(B × N × d)`
+
 (Positional encoding does not change dimensions.)
 
 ### **3️⃣ Geometry-Aware Transformer Encoder**
@@ -44,71 +39,60 @@ F \in \mathbb{R}^{B \times N \times d} \quad \Rightarrow \quad F' \in \mathbb{R}
 - Models local and global geometric relations.
 
 📌 **Mathematical Operation:**  
-\[
-V = \text{Encoder}(F')
-\]
+`V = Encoder(F')`
+
 📌 **Shape:**  
-\[
-F' \in \mathbb{R}^{B \times N \times d} \quad \Rightarrow \quad V \in \mathbb{R}^{B \times N \times d}
-\]
+`F' ∈ R^(B × N × d) → V ∈ R^(B × N × d)`
 
 ### **4️⃣ Query Generator (Dynamic Queries)**
 - **Generates queries based on encoder output.**
 - Queries represent missing point proxies.
 
 📌 **Mathematical Operation:**  
-\[
-Q = \text{QueryGenerator}(V)
-\]
+`Q = QueryGenerator(V)`
+
 📌 **Shape:**  
-\[
-V \in \mathbb{R}^{B \times N \times d} \quad \Rightarrow \quad Q \in \mathbb{R}^{B \times M \times d}
-\]
-where \( M \) is the number of missing point proxies.
+`V ∈ R^(B × N × d) → Q ∈ R^(B × M × d)`
+
+where `M` is the number of missing point proxies.
 
 ### **5️⃣ Geometry-Aware Transformer Decoder**
 - **Cross-attention between encoder outputs and queries.**
 - Generates refined point proxy features.
 
 📌 **Mathematical Operation:**  
-\[
-H = \text{Decoder}(Q, V)
-\]
+`H = Decoder(Q, V)`
+
 📌 **Shape:**  
-\[
-Q \in \mathbb{R}^{B \times M \times d}, \quad V \in \mathbb{R}^{B \times N \times d} \quad \Rightarrow \quad H \in \mathbb{R}^{B \times M \times d}
-\]
+`Q ∈ R^(B × M × d), V ∈ R^(B × N × d) → H ∈ R^(B × M × d)`
 
 ### **6️⃣ FoldingNet (Final Point Cloud Generation)**
 - **Generates fine-grained point clouds from point proxies.**
 - Uses an MLP-based upsampling strategy.
 
 📌 **Mathematical Operation:**  
-\[
-P = \text{FoldingNet}(H)
-\]
+`P = FoldingNet(H)`
+
 📌 **Shape:**  
-\[
-H \in \mathbb{R}^{B \times M \times d} \quad \Rightarrow \quad P \in \mathbb{R}^{B \times M' \times 3}
-\]
-where \( M' \) is the number of final generated points.
+`H ∈ R^(B × M × d) → P ∈ R^(B × M' × 3)`
+
+where `M'` is the number of final generated points.
 
 ## **📝 Summary Table (Shapes Per Module)**
 
 | **Module**                            | **Input Shape**              | **Output Shape**            |
 |----------------------------------------|------------------------------|-----------------------------|
-| **1. Feature Extractor (DGCNN)**       | \( B \times N \times 3 \)     | \( B \times N \times d_{lf} \)    |
-| **2. Positional Embedding**            | \( B \times N \times 3 \)     | \( B \times N \times d_{pe} \)    |
-| **3. Transformer Encoder**             | \( B \times N \times d \)     | \( B \times N \times d \)    |
-| **4. Query Generator**                 | \( B \times N \times d \)     | \( B \times M \times d \), \( B \times M \times 3 \)    |
-| **5. Transformer Decoder (Cross-Attn)**| \( B \times M \times d_k \), \( B \times N \times d_v \) | \( B \times M \times d \) |
-| **6. FoldingNet (Final Output)**       | \( B \times M \times 3 \)     | \( B \times M \times 3 \)  |
+| **1. Feature Extractor (DGCNN)**       | `B × N × 3`                  | `B × N × d_lf`             |
+| **2. Positional Embedding**            | `B × N × 3`                  | `B × N × d_pe`             |
+| **3. Transformer Encoder**             | `B × N × d`                  | `B × N × d`                |
+| **4. Query Generator**                 | `B × N × d`                  | `B × M × d`, `B × M × 3`   |
+| **5. Transformer Decoder (Cross-Attn)**| `B × M × d_k`, `B × N × d_v` | `B × M × d`                |
+| **6. FoldingNet (Final Output)**       | `B × M × 3`                  | `B × M × 3`                |
 
 ## **🚀 Final Output**
-✅ **Complete 3D Point Cloud**:  
-\[
-P \in \mathbb{R}^{B \times M' \times 3}
-\]
-where \( M' \) is the number of reconstructed points.
+✅ **Constructed 3D Point Cloud**:  
+`P ∈ R^(B × M × 3)`
+
+where `M` is the number of reconstructed points.
 
 This provides the **abstract mathematical operations and shape transformations** for each module in **Our Architecture**.🚀

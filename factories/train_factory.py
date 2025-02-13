@@ -2,9 +2,8 @@ from train.train_pct import train
 
 # Factory to choose the suitable training Loop use args
 TRAIN_FACTORY = {
-    "KCNet": train,
     "FoldingNet": train,
-    "PCT": train,
+    "Generation": train,
 }
 
 def get_train(model, *args, **kwargs):

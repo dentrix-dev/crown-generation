@@ -78,11 +78,10 @@ class CrownGenerationDataset(Dataset):
         else:
             vertices_np_cleaned = vertices_np
             valid_mask = 0
-        
-        vertices_np = vertices_np - np.mean(vertices_np, axis=0)
-        points, idx = self.sampling_fn(vertices_np_cleaned, self.args.n_centroids, self.args.nsamples)
 
-        return points, idx, valid_mask
+        vertices_np_cleaned = vertices_np_cleaned - np.mean(vertices_np_cleaned, axis=0)
+
+        return vertices_np_cleaned, valid_mask
 
     def _load_labels(self, label_path):
         """Load labels from the JSON file."""
@@ -95,17 +94,28 @@ class CrownGenerationDataset(Dataset):
         bmesh_path, label_path = self.data_list[idx]
 
         labels, jaw = self._load_labels(label_path)
-        vertices, idx, valid_mask = self._load_bmesh_file(bmesh_path)
-
+        vertices_np_cleaned, valid_mask = self._load_bmesh_file(bmesh_path)
         if self.args.clean:
-            labels = torch.tensor(labels[valid_mask][idx], dtype=torch.long)
-        else:
-            labels = torch.tensor(labels[idx], dtype=torch.long)
+            labels = labels[valid_mask]
+        ubique_labels = np.unique(labels)
+        ubique_labels = ubique_labels[ubique_labels!=0]
+        random_idx = np.random.choice(ubique_labels)
+        mask_out = (labels == random_idx)
+        mask = (labels != random_idx)
 
-        # Convert vertices to a PyTorch tensor and apply the view transformation
+        in_vertices = vertices_np_cleaned[mask]
+        output = vertices_np_cleaned[mask_out]
+
+        vertices, idx = self.sampling_fn(in_vertices, self.args.n_centroids, self.args.nsamples)
+        print(vertices_np_cleaned.shape, in_vertices.shape, output.shape)
+        
+        output, _ = self.sampling_fn(output, 32, self.args.nsamples)
+        labels = torch.tensor(labels[idx], dtype=torch.long)
+
         vertices = torch.tensor(vertices, dtype=torch.float32).view(-1, 3)
-
-        return vertices.view(-1, 3), labels.view(-1), jaw
+        output = torch.tensor(output, dtype=torch.float32).view(-1, 3)
+        print(vertices.shape, output.shape)
+        return vertices, output, labels, jaw
 
 # Usage of the dataset
 def OSF_data_loaders(args):

@@ -28,7 +28,7 @@ class TransformerArchitecture(nn.Module):
         return self.decoder(query, encoder_in), points
 
 class Model(nn.Module):
-    def __init__(self, inchannels=256, dk=256, dv=256, factor=4, num_heads=4, num_layers=2, num_points = 32, offset=False):
+    def __init__(self, inchannels=256, dk=256, dv=256, factor=4, num_heads=4, num_layers=2, num_points = 512, offset=False):
         super(Model, self).__init__()
         self.features = FeatureExtractor()
         self.transformer = TransformerArchitecture() # (inchannels=inchannels, dk=dk, dv=dv, factor=factor, num_heads=num_heads, num_layers=num_layers, offset=offset)
