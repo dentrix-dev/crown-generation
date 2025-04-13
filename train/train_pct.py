@@ -17,26 +17,29 @@ def train(model, train_loader, test_loader, args):
 
     for epoch in range(args.num_epochs):
         cum_loss = 0
-
         for vertices, crown_output, masked_teeth, jaw in tqdm(train_loader, desc=f'Epoch {epoch+1}/{args.num_epochs}'):
-            vertices, crown_output, masked_teeth, jaw = vertices.to(device), crown_output.to(device), masked_teeth.to(device), jaw.to(device)
+            try:
+                vertices, crown_output, masked_teeth, jaw = vertices.to(device), crown_output.to(device), masked_teeth.to(device), jaw.to(device)
 
-            if args.rigid_augmentation_train:
-                vertices = apply_random_transformation(vertices, rotat=args.rotat, trans=args.trans)
-            vertices = vertices - vertices.mean(dim=1, keepdim=True)
+                if args.rigid_augmentation_train:
+                    vertices = apply_random_transformation(vertices, rotat=args.rotat, trans=args.trans)
+                vertices = vertices - vertices.mean(dim=1, keepdim=True)
 
-            # Forward pass
-            outputs = model(vertices, masked_teeth, jaw)
+                outputs = model(vertices, masked_teeth, jaw)
+                loss = criterion(outputs, crown_output)
+                cum_loss += loss.item()
 
-            loss = criterion(outputs, crown_output)
-            cum_loss += loss.item()
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-            # Zero the parameter gradients
-            optimizer.zero_grad()
-
-            # Backward pass and optimize
-            loss.backward()
-            optimizer.step()
+            except Exception as e:
+                print("Error on batch:")
+                print("vertices shape:", vertices.shape)
+                print("crown_output shape:", crown_output.shape)
+                print("masked_teeth shape:", masked_teeth.shape)
+                print("jaw shape:", jaw.shape)
+                raise e
 
         # Calculate average loss
         cum_loss /= len(train_loader)
@@ -47,16 +50,24 @@ def train(model, train_loader, test_loader, args):
 
         with torch.no_grad():
             for vertices, crown_output, masked_teeth, jaw in tqdm(test_loader, desc=f'Epoch {epoch+1}/{args.num_epochs}'):
-                vertices, crown_output, masked_teeth, jaw = vertices.to(device), crown_output.to(device), masked_teeth.to(device), jaw.to(device)
+                try:
+                    vertices, crown_output, masked_teeth, jaw = vertices.to(device), crown_output.to(device), masked_teeth.to(device), jaw.to(device)
 
-                if args.rigid_augmentation_test:
-                    vertices = apply_random_transformation(vertices, rotat=args.rotat, trans=args.trans)
-                vertices = vertices - vertices.mean(dim=1, keepdim=True)
+                    if args.rigid_augmentation_test:
+                        vertices = apply_random_transformation(vertices, rotat=args.rotat, trans=args.trans)
+                    vertices = vertices - vertices.mean(dim=1, keepdim=True)
 
-                # Forward pass
-                outputs = model(vertices, masked_teeth, jaw)
+                    # Forward pass
+                    outputs = model(vertices, masked_teeth, jaw)
 
-                t_loss += criterion(outputs, crown_output).item()
+                    t_loss += criterion(outputs, crown_output).item()
+                except Exception as e:
+                    print("Error on batch:")
+                    print("vertices shape:", vertices.shape)
+                    print("crown_output shape:", crown_output.shape)
+                    print("masked_teeth shape:", masked_teeth.shape)
+                    print("jaw shape:", jaw.shape)
+                    raise e
 
         # Calculate average loss
         t_loss /= len(test_loader)
