@@ -6,7 +6,7 @@ class DGCNN(nn.Module):
     def __init__(self):
         super(DGCNN, self).__init__()
 
-        self.embedding = nn.Embedding(32, 64) # 2-> 32
+        self.embedding = nn.Embedding(2, 64)
         self.conv_emb = nn.Conv1d(64, 64, 1)
 
         self.edgeconv1 = EdgeConv(3, [64, 64])
@@ -18,9 +18,9 @@ class DGCNN(nn.Module):
 
         self.relu = nn.LeakyReLU()
 
-    def forward(self, x, teeth=0):  ### B, N, Cin -> # B, Nout, Cout
+    def forward(self, x, jaw=0):  ### B, N, Cin -> # B, Nout, Cout
 
-        emb = self.embedding(teeth).unsqueeze(2)
+        emb = self.embedding(jaw).unsqueeze(2)
         emb = self.conv_emb(emb).permute(0, 2, 1)
 
         x1 = self.edgeconv1(x)

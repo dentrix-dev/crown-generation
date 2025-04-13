@@ -12,14 +12,14 @@ from config.args_config import parse_args
 args = parse_args()
 
 cuda = True if torch.cuda.is_available() else False
-device = 'cuda' if cuda else 'cpu'
+device = 'cpu' # 'cuda' if cuda else 'cpu'
 
 # Use the factory to dynamically get the dataloaders for specific dataset
 train_loader, test_loader = get_dataset_loader(args.Dataset, args)
 
 # Use the factory to dynamically get the model
-model = get_model(args.model, num_points=32).to(device)
-model = nn.DataParallel(model).to(device)
+model = get_model(args.model, num_points=512).to(device)
+# model = nn.DataParallel(model).to(device)
 print_trainable_parameters(model)
 if args.pretrained is not None and os.path.exists(args.pretrained):
     try:

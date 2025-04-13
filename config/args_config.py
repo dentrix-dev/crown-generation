@@ -9,7 +9,8 @@ def parse_args():
 
     ## sampling
     parser.add_argument('--sampling', type=str, default='fps', help="Sampling technique")
-    parser.add_argument('--n_centroids', type=int, default=2048, help="centroids")
+    parser.add_argument('--n_centroids', type=int, default=2048, help="centroids for input")
+    parser.add_argument('--n_centroids_target', type=int, default=512, help="centroids for target")
     parser.add_argument('--nsamples', type=int, default=16, help="sample points")
     parser.add_argument('--radius', type=float, default=0.1, help="radius of ball query")
     parser.add_argument('--knn', type=int, default=16, help="neighbours for Dyanmic Graph contruction")

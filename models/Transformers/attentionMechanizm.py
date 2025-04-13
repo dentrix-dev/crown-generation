@@ -131,11 +131,17 @@ class Encoder(nn.Module):
 class QueryGenerator(nn.Module):
     def __init__(self, in_channels, num_points, out_channels):
         super(QueryGenerator, self).__init__()
-        self.conv1 = LBRD(in_channels, 3*num_points) # nn.Conv1d
-        self.conv2 = LBRD(in_channels + 3, out_channels)
+        self.embedding = nn.Embedding(32, in_channels)
+        self.conv_emb = nn.Conv1d(in_channels, in_channels, 1)
+        self.conv1 = LBRD(2*in_channels, 3*num_points)
+        self.conv2 = LBRD(2*in_channels + 3, out_channels)
 
-    def forward(self, F): # B, N, D
+    def forward(self, F, teeth): # B, N, D
+        emb = self.embedding(teeth).unsqueeze(2)
+        emb = self.conv_emb(emb).permute(0, 2, 1)
+
         F = torch.max(F, dim=1, keepdim=True)[0]
+        F = torch.cat([F, emb], dim=2)
         points = self.conv1(F).reshape(F.shape[0], -1, 3)
         Q = torch.cat([points, F.expand(points.size(0), points.size(1), -1)], dim = 2)
         return self.conv2(Q), points

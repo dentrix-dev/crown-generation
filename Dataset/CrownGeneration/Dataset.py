@@ -1,3 +1,4 @@
+import trimesh
 import torch
 from torch.utils.data import Dataset, DataLoader
 import os
@@ -78,7 +79,7 @@ class CrownGenerationDataset(Dataset):
         else:
             vertices_np_cleaned = vertices_np
             valid_mask = 0
-
+        
         vertices_np_cleaned = vertices_np_cleaned - np.mean(vertices_np_cleaned, axis=0)
 
         return vertices_np_cleaned, valid_mask
@@ -94,28 +95,42 @@ class CrownGenerationDataset(Dataset):
         bmesh_path, label_path = self.data_list[idx]
 
         labels, jaw = self._load_labels(label_path)
-        vertices_np_cleaned, valid_mask = self._load_bmesh_file(bmesh_path)
+        vertices, valid_mask = self._load_bmesh_file(bmesh_path)
+
         if self.args.clean:
             labels = labels[valid_mask]
-        ubique_labels = np.unique(labels)
-        ubique_labels = ubique_labels[ubique_labels!=0]
-        random_idx = np.random.choice(ubique_labels)
-        mask_out = (labels == random_idx)
-        mask = (labels != random_idx)
-
-        in_vertices = vertices_np_cleaned[mask]
-        output = vertices_np_cleaned[mask_out]
-
-        vertices, idx = self.sampling_fn(in_vertices, self.args.n_centroids, self.args.nsamples)
-        print(vertices_np_cleaned.shape, in_vertices.shape, output.shape)
-        
-        output, _ = self.sampling_fn(output, 32, self.args.nsamples)
-        labels = torch.tensor(labels[idx], dtype=torch.long)
 
         vertices = torch.tensor(vertices, dtype=torch.float32).view(-1, 3)
-        output = torch.tensor(output, dtype=torch.float32).view(-1, 3)
-        print(vertices.shape, output.shape)
-        return vertices, output, labels, jaw
+        labels = torch.tensor(labels, dtype=torch.long).view(-1)
+
+        # === TEETH RECONSTRUCTION MODIFICATION STARTS HERE ===
+
+        # Get unique labels (excluding background if needed)
+        unique_teeth = labels.unique()
+        unique_teeth = unique_teeth[unique_teeth != 0]
+
+        # Randomly select one tooth to mask
+        masked_tooth_label = unique_teeth[torch.randint(len(unique_teeth), (1,)).item()]
+
+        # Create mask for points that belong to the selected tooth
+        tooth_mask = labels == masked_tooth_label
+
+        # Save the masked tooth (target for reconstruction)
+        target = vertices[tooth_mask].clone()
+
+        # Remove the masked tooth from the input
+        vertices_masked = vertices[~tooth_mask]
+    
+        # Sampling the input and target to fixed number of points
+        vertices_masked, _ = self.sampling_fn(vertices_masked.numpy(), num_centroids=self.args.n_centroids)
+        target, _ = self.sampling_fn(target.numpy(), num_centroids=self.args.n_centroids_target)
+    
+        # Convert to tensors
+        vertices_masked = torch.tensor(vertices_masked, dtype=torch.float32).view(-1, 3)
+        target = torch.tensor(target, dtype=torch.float32).view(-1, 3)
+
+        # === TEETH RECONSTRUCTION MODIFICATION ENDS HERE ===
+        return vertices_masked, target, masked_tooth_label, jaw
 
 # Usage of the dataset
 def OSF_data_loaders(args):
