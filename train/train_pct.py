@@ -1,12 +1,11 @@
 import os
-import numpy as np
 import torch
 from factories.losses_factory import get_loss
 from rigidTransformations import apply_random_transformation
 from tqdm import tqdm
 
 cuda = True if torch.cuda.is_available() else False
-device = 'cpu' # 'cuda' if cuda else 'cpu'
+device = 'cuda' if cuda else 'cpu'
 
 def train(model, train_loader, test_loader, args):
 

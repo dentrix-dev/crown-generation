@@ -1,9 +1,8 @@
-import time
 import torch
 import torch.nn as nn
 from .Transformers.DGCNN import DGCNN
 from .Transformers.attentionMechanizm import PositionEmbedding, Encoder, Decoder, QueryGenerator
-from .FoldingNet.FoldingNet import FoldingNet
+# from .FoldingNet.FoldingNet import FoldingNet
 
 class FeatureExtractor(nn.Module):
     def __init__(self):
@@ -42,25 +41,10 @@ class Model(nn.Module):
         # self.foldingnet = FoldingNet(num_points=num_points)
 
     def forward(self, x, teeth, jaw):
-        start = time.time()
         x = self.features(x, jaw)
-        end_feature = time.time()
-        # print("Feature extraction time:", end_feature - start)
-        # print("Feature shape:", x.shape)
         x, points = self.transformer(x, teeth)
-        end_transformer = time.time()
-        # print("Transformer time:", end_transformer - end_feature)
-        # print("Points shape:", points.shape, x.shape)
         x = torch.cat([x, points], dim = 2)
         x = self.projection(x.permute(0, 2, 1)).permute(0, 2, 1)
-        end_projection = time.time()
-        # print("Projection time:", end_projection - end_transformer)
-        # print("Projection shape:", x.shape)
         return x
         # fol = self.foldingnet(x)
-        # end_folding = time.time()
-        # print("Folding time:", end_folding - end_projection)
-        # print("Folding shape:", fol.shape)
-        # print("Total time:", end_folding - start)
-        # print(fol.shape)
         # return fol +  points
