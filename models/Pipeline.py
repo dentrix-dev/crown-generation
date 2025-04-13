@@ -19,7 +19,7 @@ class TransformerArchitecture(nn.Module):
     def __init__(self, in_channels=256, num_points=512, out_channels=256):
         super(TransformerArchitecture, self).__init__()
         self.encoder = Encoder(in_channels, dk=512, dv=512, factor=4, num_heads=4, num_layers=2)
-        self.decoder = Decoder(in_channels, encoder_in=256, dk=512, dv=512, factor=4, num_heads=4, num_layers=2*2)
+        self.decoder = Decoder(in_channels, encoder_in=256, dk=512, dv=512, factor=4, num_heads=4, num_layers=3)
         self.QG = QueryGenerator(in_channels, num_points, out_channels)
 
     def forward(self, x, teeth):
