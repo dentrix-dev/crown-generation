@@ -6,11 +6,12 @@ def parse_args():
     ## loops
     parser.add_argument('--num_epochs', type=int, default=10, help="Number of epochs")
     parser.add_argument('--batch_size', type=int, default=4, help="Batch size")
+    parser.add_argument('--h', type=int, default=5, help="Backet size FPS: 2**h <= n_pts")
 
     ## sampling
     parser.add_argument('--sampling', type=str, default='fps', help="Sampling technique")
-    parser.add_argument('--n_centroids', type=int, default=2048, help="centroids for input")
-    parser.add_argument('--n_centroids_target', type=int, default=512, help="centroids for target")
+    parser.add_argument('--n_centroids', type=int, default=2048, help="centroids for input FPD: n_pts >= samples")
+    parser.add_argument('--n_centroids_target', type=int, default=512, help="centroids for target FPS: n_pts >= samples")
     parser.add_argument('--nsamples', type=int, default=16, help="sample points")
     parser.add_argument('--radius', type=float, default=0.1, help="radius of ball query")
     parser.add_argument('--knn', type=int, default=16, help="neighbours for Dyanmic Graph contruction")

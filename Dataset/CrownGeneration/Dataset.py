@@ -109,22 +109,31 @@ class CrownGenerationDataset(Dataset):
         unique_teeth = labels.unique()
         unique_teeth = unique_teeth[unique_teeth != 0]
 
-        # Randomly select one tooth to mask
-        masked_tooth_label = unique_teeth[torch.randint(len(unique_teeth), (1,)).item()]
+        success = False
+        attempts = 0
+        max_attempts = len(unique_teeth)
 
-        # Create mask for points that belong to the selected tooth
-        tooth_mask = labels == masked_tooth_label
+        while not success and attempts < max_attempts:
+            masked_tooth_label = unique_teeth[torch.randint(len(unique_teeth), (1,)).item()]
+            tooth_mask = labels == masked_tooth_label
+            target = vertices[tooth_mask].clone()
 
-        # Save the masked tooth (target for reconstruction)
-        target = vertices[tooth_mask].clone()
+            if target.shape[0] >= self.args.n_centroids_target:
+                success = True
+            else:
+                attempts += 1
+                unique_teeth = unique_teeth[unique_teeth != masked_tooth_label]  # avoid retrying same tooth
 
+        if not success:
+            raise ValueError(f"Could not find a valid tooth with enough points in sample {bmesh_path}")
+
+        target, _ = self.sampling_fn(target, num_centroids=self.args.n_centroids_target)
         # Remove the masked tooth from the input
         vertices_masked = vertices[~tooth_mask]
     
         # Sampling the input and target to fixed number of points
-        vertices_masked, _ = self.sampling_fn(vertices_masked.numpy(), num_centroids=self.args.n_centroids)
-        target, _ = self.sampling_fn(target.numpy(), num_centroids=self.args.n_centroids_target)
-    
+        vertices_masked, _ = self.sampling_fn(vertices_masked, num_centroids=self.args.n_centroids)
+
         # Convert to tensors
         vertices_masked = torch.tensor(vertices_masked, dtype=torch.float32).view(-1, 3)
         target = torch.tensor(target, dtype=torch.float32).view(-1, 3)
