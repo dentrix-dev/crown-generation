@@ -100,13 +100,10 @@ class CrownGenerationDataset(Dataset):
         if self.args.clean:
             labels = labels[valid_mask]
 
-        vertices = torch.tensor(vertices, dtype=torch.float32).view(-1, 3)
-        labels = torch.tensor(labels, dtype=torch.long).view(-1)
-
         # === TEETH RECONSTRUCTION MODIFICATION STARTS HERE ===
 
         # Get unique labels (excluding background if needed)
-        unique_teeth = labels.unique()
+        unique_teeth = np.unique(labels)
         unique_teeth = unique_teeth[unique_teeth != 0]
 
         success = False
@@ -116,7 +113,7 @@ class CrownGenerationDataset(Dataset):
         while not success and attempts < max_attempts:
             masked_tooth_label = unique_teeth[torch.randint(len(unique_teeth), (1,)).item()]
             tooth_mask = labels == masked_tooth_label
-            target = vertices[tooth_mask].clone()
+            target = vertices[tooth_mask]
 
             if target.shape[0] >= self.args.n_centroids_target:
                 success = True
