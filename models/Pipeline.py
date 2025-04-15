@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from .Transformers.DGCNN import DGCNN
 from .Transformers.attentionMechanizm import PositionEmbedding, Encoder, Decoder, QueryGenerator
-# from .FoldingNet.FoldingNet import FoldingNet
 
 class FeatureExtractor(nn.Module):
     def __init__(self):

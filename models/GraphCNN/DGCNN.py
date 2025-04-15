@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from ..PointNetpp.PointNet2d import TNetkd
 from sampling.PointsCloud.knn import kdneighGPU
 
