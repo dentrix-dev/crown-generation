@@ -1,0 +1,6 @@
+numpy==1.26.4
+open3d==0.18.0
+scikit-learn==1.5.1
+trimesh==4.4.4
+fpsample==0.3.3
+gdown==5.2.0
