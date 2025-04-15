@@ -1,5 +1,6 @@
 import os
 import torch
+from torch.amp import autocast
 from factories.losses_factory import get_loss
 from rigidTransformations import apply_random_transformation
 from tqdm import tqdm
@@ -25,7 +26,8 @@ def train(model, train_loader, test_loader, args):
                     vertices = apply_random_transformation(vertices, rotat=args.rotat, trans=args.trans)
                 vertices = vertices - vertices.mean(dim=1, keepdim=True)
 
-                outputs = model(vertices, masked_teeth, jaw)
+                with autocast(device_type='cuda'):
+                    outputs = model(vertices, masked_teeth, jaw)
                 loss = criterion(outputs, crown_output)
                 cum_loss += loss.item()
 
@@ -58,7 +60,8 @@ def train(model, train_loader, test_loader, args):
                     vertices = vertices - vertices.mean(dim=1, keepdim=True)
 
                     # Forward pass
-                    outputs = model(vertices, masked_teeth, jaw)
+                    with autocast(device_type='cuda'):
+                        outputs = model(vertices, masked_teeth, jaw)
 
                     t_loss += criterion(outputs, crown_output).item()
                 except Exception as e:
