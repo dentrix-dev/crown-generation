@@ -24,7 +24,7 @@ print(output)
 
 print(output.shape)
 # if args.test:
-#     with open(args.test_ids, 'r') as f: 
+#     with open(args.test_ids, 'r') as f:
 #             file = json.load(f)
 #     labels = np.maximum(0, np.array(file['labels']) - 10 - 2 * ((np.array(file['labels']) // 10) - 1))
 #     print(labels.shape, sum(labels==0))

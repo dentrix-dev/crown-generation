@@ -1,44 +1,49 @@
 from scipy.spatial import cKDTree
 import torch
+from torch_cluster import knn_graph
+# from torch_geometric.nn import knn_graph
 
-
-def kdneigh(x, args):
-
-    if len(x.shape) == 2:
-        x = x.unsqueeze(0)
-
+def knn_neighbors(x, args):
+    """Corrected kNN implementation with torch_cluster"""
+    batch_size, num_points, _ = x.shape
+    x_flat = x.reshape(-1, x.size(-1))  # Shape: (B*N, D)
     k = args.knn
-    batch_size, num_points, num_features = x.shape
 
-    edge_features = []
+    # Create batch indices
+    batch = torch.arange(batch_size, device=x.device)
+    batch = batch.repeat_interleave(num_points)  # Shape: (B*N,)
+    # Get kNN indices (returns edge index: [2, E]) (neighbors, query_points)
+    edge_index = knn_graph(x_flat, k=k, batch=batch, loop=False, flow="source_to_target")
 
-    for batch_idx in range(batch_size):
-        # Convert tensor to numpy array for KDTree
-        x_batch = x[batch_idx].detach().cpu().numpy()
+    # Initialize idx tensor to hold neighbors
+    idx = edge_index[0].view(batch_size, num_points, k)
+    print(idx.shape)
+    #  local_idx = edge_index[1] - (batch * num_points)[edge_index[0]]
+    #  local_idx = local_idx.view(batch_size, num_points, k)
 
-        # Build a KDTree for efficient nearest neighbor search
-        tree = cKDTree(x_batch)
+    # Gather neighbors
+    x_neighbors = x.unsqueeze(2).expand(-1, -1, k, -1)
+    neighbors = torch.gather(
+        x_neighbors,
+        dim=1,
+        index=idx.unsqueeze(-1).expand(-1, -1, -1, x.size(-1))
+    )
+    # Compute edge features
+    central = x.unsqueeze(2).expand(-1, -1, k, -1)  # (B, N, k, C)
 
-        # Query the tree to get k-nearest neighbors (ignoring the point itself)
-        _, idx = tree.query(x_batch, k=k+1)  # query k+1 to exclude self-neighbor
-        idx = idx[:, 1:]  # Remove self-neighbor
-
-        # Get the neighbors
-        neighbors = torch.from_numpy(x_batch[idx]).to(x.device)
-
-        # Compute edge features as concatenation of the central point and the difference with its neighbors
-        central_point = x[batch_idx].unsqueeze(1).expand(-1, k, -1)
-        edge_feature = torch.cat([central_point, neighbors - central_point], dim=-1)
-        edge_features.append(edge_feature)
-
-    edge_features = torch.stack(edge_features)
-    
-    return edge_features
+    edge_feats = torch.cat([central, neighbors - central], dim=-1)
+    return edge_feats, neighbors
 
 
 def kdneighGPU(x, args):
     if len(x.shape) == 2:
         x = x.unsqueeze(0)  # Ensure we have a batch dimension
+
+    device = x.device
+    # if device.type == 'cuda':
+    #     x_cpu = x.detach().cpu().numpy()
+    # else:
+    #     x_cpu = x.detach().numpy()
 
     k = args.knn
     batch_size, num_points, num_features = x.shape
@@ -49,7 +54,14 @@ def kdneighGPU(x, args):
     # Loop over the batch
     for batch_idx in range(batch_size):
         # Convert the tensor to a numpy array for KDTree computation (no gradients required for this step)
-        x_batch_np = x[batch_idx].detach().cpu().numpy()
+        try:
+            x_batch_np = x[batch_idx].detach().cpu().numpy()
+        except Exception as e:
+            print("x.shape:", x.shape)
+            print("batch_idx :", batch_idx)
+            print("batch_idx shape :", x[batch_idx].shape)
+            # print("batch_idx max:", batch_idx.max(), "min:", batch_idx.min())
+            raise e
 
         # Build a KDTree for efficient nearest neighbor search
         tree = cKDTree(x_batch_np)
@@ -59,7 +71,7 @@ def kdneighGPU(x, args):
         idx = idx[:, 1:]  # Exclude self-neighbor by slicing off the first element
 
         # Gather neighbors based on the KDTree indices, but using PyTorch tensors
-        neighbors = x[batch_idx][torch.tensor(idx, device=x.device, dtype=torch.long)]
+        neighbors = x[batch_idx][torch.tensor(idx, device=device, dtype=torch.long)]
 
         # Compute edge features as the concatenation of the central point and the difference with neighbors
         central_point = x[batch_idx].unsqueeze(1).expand(-1, k, -1)

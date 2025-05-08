@@ -137,7 +137,13 @@ class QueryGenerator(nn.Module):
         self.conv2 = LBRD(2*in_channels + 3, out_channels)
 
     def forward(self, F, teeth): # B, N, D
-        emb = self.embedding(teeth).unsqueeze(2)
+        try:
+            emb = self.embedding(teeth).unsqueeze(2)
+        except Exception as e:
+            print("teeth shape:", teeth.shape, " value :", teeth)
+            print("teeth dtype:", teeth.dtype)
+            print("teeth device:", teeth.device)
+            raise e
         emb = self.conv_emb(emb).permute(0, 2, 1)
 
         F = torch.max(F, dim=1, keepdim=True)[0]

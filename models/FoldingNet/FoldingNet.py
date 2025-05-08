@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import torch
 import torch.nn as nn
-from sampling.PointsCloud.knn import kdneighGPU, compute_local_covariance
+from sampling.PointsCloud.knn import knn_neighbors as kdneighGPU, compute_local_covariance
 
 class GraphLayer(nn.Module):
     def __init__(self, in_channels, out_channels, k=32):

@@ -23,7 +23,7 @@ def generate(vertices_np, model_name="poinTr", pretrained="/path/to/checkpoint.p
         np.ndarray: Generation output of shape (1, Out_num_points, 3).
     """
     # Load the model using a factory
-    model = get_model("FoldingNet").to(device)
+    model = get_model("Generation").to(device)
 
     # Load pretrained weights if provided
     if pretrained and os.path.exists(pretrained):
@@ -61,6 +61,7 @@ def generate(vertices_np, model_name="poinTr", pretrained="/path/to/checkpoint.p
             (x_values < (x_mean + alpha * x_std)) & (x_values > (x_mean - alpha * x_std))
         )
         vertices_np = vertices_np[valid_mask]
+        vertices_np = vertices_np - np.mean(vertices_np, axis=0)
 
     # Downsample the vertices if sampling is enabled
     if sample:

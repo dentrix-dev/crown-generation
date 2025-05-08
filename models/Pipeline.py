@@ -9,8 +9,8 @@ class FeatureExtractor(nn.Module):
         self.posembedding = PositionEmbedding(3, 128)
         self.dgcnn = DGCNN()
 
-    def forward(self, x, teeth):
-        le = self.dgcnn(x, teeth)
+    def forward(self, x, jaw):
+        le = self.dgcnn(x, jaw)
         pe = self.posembedding(x)
         return torch.cat([pe, le], dim = 2)
 

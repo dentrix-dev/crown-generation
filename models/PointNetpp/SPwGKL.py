@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from models.FoldingNet.Mining import GaussianKernelConv
 from models.GraphCNN.DGCNN import EdgeConv
-from sampling.PointsCloud.knn import kdneighGPU
+from sampling.PointsCloud.knn import knn_neighbors as kdneighGPU
 
 import argparse
 
