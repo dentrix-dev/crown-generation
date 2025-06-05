@@ -131,7 +131,7 @@ class Encoder(nn.Module):
 class QueryGenerator(nn.Module):
     def __init__(self, in_channels, num_points, out_channels):
         super(QueryGenerator, self).__init__()
-        self.embedding = nn.Embedding(32, in_channels)
+        self.embedding = nn.Embedding(33, in_channels)
         self.conv_emb = nn.Conv1d(in_channels, in_channels, 1)
         self.conv1 = LBRD(2*in_channels, 3*num_points)
         self.conv2 = LBRD(2*in_channels + 3, out_channels)

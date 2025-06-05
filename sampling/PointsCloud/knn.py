@@ -3,88 +3,73 @@ import torch
 from torch_cluster import knn_graph
 # from torch_geometric.nn import knn_graph
 
+
+def enforce_exact_k_cuda(edge_index: torch.LongTensor, k: int, N: int) -> torch.LongTensor:
+    """
+    Given edge_index of shape [2, E] on CUDA, produce a new [2, E'] where each dst node has <= k incoming edges.
+    Assumes edge_index is on the same device (e.g. CUDA).
+    """
+    device = edge_index.device
+    src = edge_index[0]         # [E]
+    dst = edge_index[1]         # [E]
+
+    # 1) sort by dst
+    sorted_dst, perm = dst.sort()
+    sorted_src = src[perm]
+
+    # 2) find unique dst values and counts
+    unique_vals, counts = torch.unique(sorted_dst, return_counts=True)
+    # counts is [#unique], sums to E
+
+    # 3) compute start index of each group via cumsum
+    #    “group_starts[i]” is the first index in sorted_dst where unique_vals[i] appears
+    group_ends = counts.cumsum(dim=0)           # ends of each group
+    group_starts = group_ends - counts          # starts of each group
+
+    # 4) assign each sorted element a “group index” by doing unique on sorted_dst
+    #    (we know sorted_dst is sorted, so unique preserves order)
+    _, inverse = torch.unique(sorted_dst, return_inverse=True)
+    #  `inverse[j]` tells us which unique_vals group sorted_dst[j] belongs to
+
+    # 5) for each position j in [0..E), compute its rank within its group:
+    idx = torch.arange(sorted_dst.size(0), device=device)
+    start_per_elem = group_starts[inverse]     # broadcast: for each j, get the group’s start index
+    rank_within_group = idx - start_per_elem   # 0,1,2,... within each block of identical dst
+
+    # 6) mask = rank < k  → keep only the first k of each group
+    keep_mask = rank_within_group < k          # [E] boolean
+
+    # 7) apply that mask to the original permuted indices to recover final edges
+    final_perm = perm[keep_mask]
+    return edge_index[:, final_perm]
+
 def knn_neighbors(x, args):
-    """Corrected kNN implementation with torch_cluster"""
-    batch_size, num_points, _ = x.shape
-    x_flat = x.reshape(-1, x.size(-1))  # Shape: (B*N, D)
+    B, N, C = x.shape
+    x_flat = x.reshape(B * N, C)
     k = args.knn
+    batch = torch.arange(B, device=x.device).repeat_interleave(N)
+    edge_index = knn_graph(x_flat, k=k, batch=batch, loop=False, flow = 'source_to_target') # 'target_to_source')
+    edge_index = enforce_exact_k_cuda(edge_index, k, N)
+    src, dst = edge_index
+    dst_batch = batch[dst]  
+    dst_idx_local = dst % N
+    src_idx_local = src % N
 
-    # Create batch indices
-    batch = torch.arange(batch_size, device=x.device)
-    batch = batch.repeat_interleave(num_points)  # Shape: (B*N,)
-    # Get kNN indices (returns edge index: [2, E]) (neighbors, query_points)
-    edge_index = knn_graph(x_flat, k=k, batch=batch, loop=False, flow="source_to_target")
+    idx = torch.zeros((B, N, k), dtype=torch.long, device=x.device)
+    arange_k = torch.arange(k, device=x.device).repeat(B * N)[:dst.size(0)]
 
-    # Initialize idx tensor to hold neighbors
-    idx = edge_index[0].view(batch_size, num_points, k)
-    print(idx.shape)
-    #  local_idx = edge_index[1] - (batch * num_points)[edge_index[0]]
-    #  local_idx = local_idx.view(batch_size, num_points, k)
+    idx[dst_batch, dst_idx_local, arange_k] = src_idx_local
 
-    # Gather neighbors
-    x_neighbors = x.unsqueeze(2).expand(-1, -1, k, -1)
     neighbors = torch.gather(
-        x_neighbors,
+        x.unsqueeze(2).expand(-1, -1, k, -1),
         dim=1,
-        index=idx.unsqueeze(-1).expand(-1, -1, -1, x.size(-1))
+        index=idx.unsqueeze(-1).expand(-1, -1, -1, C)
     )
-    # Compute edge features
-    central = x.unsqueeze(2).expand(-1, -1, k, -1)  # (B, N, k, C)
 
+    central = x.unsqueeze(2).expand(-1, -1, k, -1)
     edge_feats = torch.cat([central, neighbors - central], dim=-1)
     return edge_feats, neighbors
 
-
-def kdneighGPU(x, args):
-    if len(x.shape) == 2:
-        x = x.unsqueeze(0)  # Ensure we have a batch dimension
-
-    device = x.device
-    # if device.type == 'cuda':
-    #     x_cpu = x.detach().cpu().numpy()
-    # else:
-    #     x_cpu = x.detach().numpy()
-
-    k = args.knn
-    batch_size, num_points, num_features = x.shape
-
-    edge_features = []
-    neighborsF = []
-
-    # Loop over the batch
-    for batch_idx in range(batch_size):
-        # Convert the tensor to a numpy array for KDTree computation (no gradients required for this step)
-        try:
-            x_batch_np = x[batch_idx].detach().cpu().numpy()
-        except Exception as e:
-            print("x.shape:", x.shape)
-            print("batch_idx :", batch_idx)
-            print("batch_idx shape :", x[batch_idx].shape)
-            # print("batch_idx max:", batch_idx.max(), "min:", batch_idx.min())
-            raise e
-
-        # Build a KDTree for efficient nearest neighbor search
-        tree = cKDTree(x_batch_np)
-
-        # Query the KDTree for k-nearest neighbors (excluding self, so query k+1)
-        _, idx = tree.query(x_batch_np, k=k + 1)
-        idx = idx[:, 1:]  # Exclude self-neighbor by slicing off the first element
-
-        # Gather neighbors based on the KDTree indices, but using PyTorch tensors
-        neighbors = x[batch_idx][torch.tensor(idx, device=device, dtype=torch.long)]
-
-        # Compute edge features as the concatenation of the central point and the difference with neighbors
-        central_point = x[batch_idx].unsqueeze(1).expand(-1, k, -1)
-        edge_feature = torch.cat([central_point, neighbors - central_point], dim=-1)
-
-        edge_features.append(edge_feature)
-        neighborsF.append(neighbors)
-
-    # Stack the edge features for the entire batch
-    edge_features = torch.stack(edge_features)
-    neighborsF = torch.stack(neighborsF)
-
-    return edge_features, neighborsF
 
 def compute_local_covariance(points):
     """
