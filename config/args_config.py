@@ -43,6 +43,7 @@ def parse_args():
     parser.add_argument('--num_workers', type=int, default=4, help="Number of Workers")
 
     ## Processing on the data
+    parser.add_argument('--loss_flag', action='store_true', help="Print iiiiii")
     parser.add_argument('--clean', action='store_true', help="Clean some of the gingave points")
     parser.add_argument('--rigid_augmentation_train', action='store_true', help="More Transformations")
     parser.add_argument('--rigid_augmentation_test', action='store_true', help="More Transformations")

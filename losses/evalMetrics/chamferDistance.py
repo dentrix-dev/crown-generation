@@ -5,7 +5,7 @@ class ChamferLoss(nn.Module):
     def __init__(self):
         super(ChamferLoss, self).__init__()
  
-    def forward(self, p1, p2):
+    def forward(self, p1, p2, flag = False):
         """
         Compute the Chamfer Distance between two point clouds.
         Args:
@@ -16,6 +16,13 @@ class ChamferLoss(nn.Module):
         """
         B, N, _ = p1.shape
         _, M, _ = p2.shape
+        if flag:
+            print(torch.isnan(p1).any(), "p1 contains NaNs")
+            print(torch.isinf(p1).any(), "p1 contains Infs")
+            print(torch.isnan(p2).any(), "p2 contains NaNs")
+            print(torch.isinf(p2).any(), "p2 contains Infs")
+            print("p1 mean:", p1.mean().item(), "std:", p1.std().item())
+            print("p2 mean:", p2.mean().item(), "std:", p2.std().item())
 
         # Compute pairwise squared distances
         diff = p1.unsqueeze(2) - p2.unsqueeze(1)  # Shape (B, N, M, 3)

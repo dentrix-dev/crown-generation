@@ -29,7 +29,7 @@ def train(model, train_loader, test_loader, args):
 
             with autocast(device_type='cuda'):
                 outputs = model(vertices, masked_teeth, jaw)
-            loss = criterion(outputs, crown_output)
+            loss = criterion(outputs, crown_output, args.loss_flag)
             cum_loss += loss.item()
 
             optimizer.zero_grad()
@@ -64,7 +64,7 @@ def train(model, train_loader, test_loader, args):
                     with autocast(device_type='cuda'):
                         outputs = model(vertices, masked_teeth, jaw)
 
-                    t_loss += criterion(outputs, crown_output).item()
+                    t_loss += criterion(outputs, crown_output, args.loss_flag).item()
                 except Exception as e:
                     print("Error on batch:")
                     print("vertices shape:", vertices.shape)
