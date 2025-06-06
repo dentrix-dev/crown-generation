@@ -95,7 +95,7 @@ class FoldingNet(nn.Module):
         self.gbencoder = GBEncoder(encoder_in, encoder_out)
         self.fbdecoder = FBDecoder(num_points)
 
-    def forward(self, x):
+    def forward(self, x, masked_teeth, jaw):
         codeword = self.gbencoder(x)
         repoints = self.fbdecoder(codeword)
 
