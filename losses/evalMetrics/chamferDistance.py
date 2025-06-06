@@ -16,11 +16,13 @@ class ChamferLoss(nn.Module):
         """
         B, N, _ = p1.shape
         _, M, _ = p2.shape
-        if flag:
-            print(torch.isnan(p1).any(), "p1 contains NaNs")
-            print(torch.isinf(p1).any(), "p1 contains Infs")
-            print(torch.isnan(p2).any(), "p2 contains NaNs")
-            print(torch.isinf(p2).any(), "p2 contains Infs")
+        if torch.isnan(p1).any().item():
+            print("p1 contains NaNs")
+            print("p1 mean:", p1.mean().item(), "std:", p1.std().item())
+            print("p2 mean:", p2.mean().item(), "std:", p2.std().item())
+
+        elif torch.isinf(p1).any().item():
+            print("p1 contains Infs")
             print("p1 mean:", p1.mean().item(), "std:", p1.std().item())
             print("p2 mean:", p2.mean().item(), "std:", p2.std().item())
 
