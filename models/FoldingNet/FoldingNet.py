@@ -75,6 +75,8 @@ class FBDecoder(nn.Module):
     def __init__(self, num_points=32):
         super(FBDecoder, self).__init__() 
         # Sample the grids in 2D space
+        num_points = int(np.sqrt(num_points))  # Ensure num_points is a perfect square for grid generation
+        print(f"Generating grid with {num_points} points per dimension.")
         self.grid = torch.tensor(np.array(np.meshgrid(np.linspace(-0.5, 0.5, num_points, dtype=np.float32), np.linspace(-0.5, 0.5, num_points, dtype=np.float32))), dtype=torch.float32).reshape(-1, 2)
         self.fold1 = Folding(514, (512, 512, 3))
         self.fold2 = Folding(515, (512, 512, 3))
