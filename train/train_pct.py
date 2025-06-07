@@ -17,6 +17,7 @@ def train(model, train_loader, test_loader, args):
 
     criterion = get_loss(args.loss)
     optimizer = torch.optim.AdamW(model.parameters(), args.lr)
+    best_loss = float('inf')
 
     for epoch in range(args.num_epochs):
         cum_loss = 0
@@ -75,13 +76,17 @@ def train(model, train_loader, test_loader, args):
 
         # Calculate average loss
         t_loss /= len(test_loader)
+        avg_test_loss = t_loss / len(test_loader)
 
         # Append metric  and loss to lists
         test_loss.append(t_loss)
+        if avg_test_loss < best_loss:
+            best_loss = avg_test_loss
+            best_model_path = os.path.join(args.output, f"{args.model}_best.pth")
+            torch.save(model.state_dict(), best_model_path)
+            print(f"[✓] Best model saved with test loss: {best_loss:.4f}")
 
         print(f'Epoch [{epoch + 1}/{args.num_epochs}], train_Loss: {cum_loss:.4f}, test_Loss: {t_loss:.4f}')
     print('Training finished.')
-
-    torch.save(model.state_dict(), os.path.join(args.output, f"{args.model}_{epoch + 1}.pth"))
 
     return train_loss, test_loss
