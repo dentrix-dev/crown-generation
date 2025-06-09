@@ -75,11 +75,10 @@ def train(model, train_loader, test_loader, args):
                     raise e
 
         # Calculate average loss
-        t_loss /= len(test_loader)
         avg_test_loss = t_loss / len(test_loader)
 
         # Append metric  and loss to lists
-        test_loss.append(t_loss)
+        test_loss.append(avg_test_loss)
         if avg_test_loss < best_loss:
             best_loss = avg_test_loss
             best_model_path = os.path.join(args.output, f"{args.model}_best.pth")
